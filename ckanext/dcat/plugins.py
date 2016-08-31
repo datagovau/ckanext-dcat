@@ -28,8 +28,6 @@ class DCATPlugin(p.SingletonPlugin, DefaultTranslation):
     p.implements(p.IActions, inherit=True)
     p.implements(p.IAuthFunctions, inherit=True)
     p.implements(p.IPackageController, inherit=True)
-    if p.toolkit.check_ckan_version(min_version='2.5.0'):
-        p.implements(p.ITranslation, inherit=True)
 
     # IConfigurer
     def update_config(self, config):
