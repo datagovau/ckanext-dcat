@@ -13,6 +13,8 @@ from ckan import model
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 
+from ckanext.dcat.interfaces import IDCATRDFHarvester
+
 
 log = logging.getLogger(__name__)
 
@@ -56,12 +58,17 @@ class DCATHarvester(HarvesterBase):
 
 
             log.debug('Getting file %s', url)
+            
+            # get the `requests` session object
+            session = requests.Session()
+            for harvester in p.PluginImplementations(IDCATRDFHarvester):
+                session = harvester.update_session(session)
 
             # first we try a HEAD request which may not be supported
             did_get = False
-            r = requests.head(url)
+            r = session.head(url)
             if r.status_code == 405 or r.status_code == 400:
-                r = requests.get(url, stream=True)
+                r = session.get(url, stream=True)
                 did_get = True
             r.raise_for_status()
 
@@ -74,7 +81,7 @@ class DCATHarvester(HarvesterBase):
                 return None, None
 
             if not did_get:
-                r = requests.get(url, stream=True)
+                r = session.get(url, stream=True)
 
             length = 0
             content = ''
@@ -96,17 +103,17 @@ class DCATHarvester(HarvesterBase):
                 # We want to catch these ones later on
                 raise
 
-            msg = 'Could not get content. Server responded with %s %s' % (
-                error.response.status_code, error.response.reason)
+            msg = 'Could not get content from %s. Server responded with %s %s' % (
+                url, error.response.status_code, error.response.reason)
             self._save_gather_error(msg, harvest_job)
             return None, None
         except requests.exceptions.ConnectionError, error:
-            msg = '''Could not get content because a
-                                connection error occurred. %s''' % error
+            msg = '''Could not get content from %s because a
+                                connection error occurred. %s''' % (url, error)
             self._save_gather_error(msg, harvest_job)
             return None, None
         except requests.exceptions.Timeout, error:
-            msg = 'Could not get content because the connection timed out.'
+            msg = 'Could not get content from %s because the connection timed out.' % url
             self._save_gather_error(msg, harvest_job)
             return None, None
 
